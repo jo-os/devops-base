@@ -128,8 +128,21 @@ deploy_prod:
             - master
             - /^release.*$/
 ```
+**Stage** - близкий к производственному сервер.
 
-
+Добавляем шаг доставки
+- ставим сервер
+- добавляем раннер
+- ставим nginx
+```yml
+deploy_dev:
+    stage: stage
+    script:
+        - cp -r ./html/* /var/www/html
+    when: manual
+    tags: # тэг раннера
+        - stage-shell
+```
 
 
 
