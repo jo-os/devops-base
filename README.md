@@ -138,14 +138,75 @@ deploy_prod:
 deploy_dev:
     stage: stage
     script:
-        - cp -r ./html/* /var/www/html
+        - cp -r ./html/* /var/www/html # копируем новый стайт
+        - rm -f /var/www/html/site.zip; zip -r /var/www/html/site.zip ./html # создаем архив
     when: manual
     tags: # тэг раннера
         - stage-shell
+    only:
+      refs:
+        master
 ```
+CI - ускоряет разработку - чем раньше обнаружена ошибка тем проще и быстрее ее исправить
 
+**Реализация рекомендованная Gitlab CI**
+- create new branch
+- push code
+- automated build and test
+- push code fixes
+- automated build and test
+- review and approve
+- merge
+- CD
 
+**Варианты проверки кода**
+- Bugs
+- Code quality
+- Perfomance
+- Security
 
+```
+sudo apt install yarn
+sudo apt install nodejs
+sudo apt install npm
+node -v 
+npm install -g n             
+n latest
 
+yarn global add create-react-app
+~/.yarn/bin/create-react-app test-react-app
 
+cd test-react-app
+yarn start
+ip:3000
+```
+```
+git init
+git remote add origin git@gitlab.com:netjoos/test-react-app.git
+git add .
+git commit
+git push -u origin --all
+```
+```
+docker run -d --name gitlab-runner --restart always \
+  -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  gitlab/gitlab-runner:latest
+
+docker run --rm -it -v /srv/gitlab-runner/config:/etc/gitlab-runner gitlab/gitlab-runner register
+Enter the GitLab instance URL (for example, https://gitlab.com/):
+https://gitlab.com/
+....
+Enter an executor: custom, ssh, parallels, docker+machine, instance, shell, virtualbox, docker, docker-windows, kubernetes, docker-autoscaler:
+docker
+```
+gitlab-ci.yml
+```
+image: node:14.15.0-stretch
+
+test:
+  script:
+    - yarn install
+    - CI=true yarn test
+```
 
