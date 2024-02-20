@@ -191,6 +191,7 @@ git push -u origin --all
 docker run -d --name gitlab-runner --restart always \
   -v /srv/gitlab-runner/config:/etc/gitlab-runner \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/www:/www \
   gitlab/gitlab-runner:latest
 
 docker run --rm -it -v /srv/gitlab-runner/config:/etc/gitlab-runner gitlab/gitlab-runner register
@@ -202,11 +203,111 @@ docker
 ```
 gitlab-ci.yml
 ```
-image: node:14.15.0-stretch
+image: node:20.11-slim
 
 test:
   script:
     - yarn install
     - CI=true yarn test
 ```
+**Stages** - стадии
+
+**Jobs** - задачи - входят в stages - выполняются параллельно внутри одного stage
+
+Состояние контейнера не сохраняется между stage, чтобы файлы были доступны необходимо создавать пути к артефактам
+```yml
+image: node:20.11-slim
+stages:
+  - build
+  - test
+
+install_dependencies:
+  stage: build
+  script: yarn install
+  artifacts: # добавляем артифакты по пути
+    paths:
+      - node_modules
+  cache: # добавляем кеш - проверяем его валидность по yarn.lock
+    paths:
+      - node_modules
+    key:
+      files:
+        - yarn.lock
+
+run_tests: 
+  stage: test
+  script:
+    - CI=true yarn test
+```
+Добавить проверку линтером для nodejs
+```
+yarn add eslint --dev
+yarn run eslint --init
+yarn run eslint src/**.js # проверка
+```
+```
+run_linter:
+  stage: test
+  script: yarn run eslint src/**.js
+```
+Требования к деплою
+- атомарность
+- обратимость
+
+Методы деплоя
+- сине-зеленый
+- канареечный
+
+Автоматизируем атомарность через симлинк
+настройка докера для доступа к /var/www
+- nano /srv/gitlab-runner/config/config.toml
+- volumes = ["/cache","/var/www/:/www:rw"]
+```
+stages:
+  - build
+  - test
+  - deploy
+
+install_dependencies:
+  image: node:20.11-slim
+  stage: build
+  script:
+    - yarn install
+    - yarn build
+  artifacts:
+    paths:
+      - node_modules
+      - build
+  cache:
+    paths:
+      - node_modules
+    key:
+      files:
+        - yarn.lock
+
+
+test:
+  stage: deploy
+  script:
+    - cp -r build /www/test-app/$CI_COMMIT_SHA
+    - ln -fsnv /var/www/test-app/$CI_COMMIT_SHA /www/html
+```
+Вариант отката
+```
+test:
+  stage: deploy
+  script:
+    - cp -r build /www/test-app/$CI_COMMIT_SHA
+    - cp -Pv /www/html /www/test-app/$CI_COMMIT_SHA/prev-version # копируем содержимое
+    - ln -fsnv /var/www/test-app/$CI_COMMIT_SHA /www/html
+
+revert:
+  stage: revert
+  when: manual
+  script:
+    - cp -Rv --remove-destination /www/test-app/$CI_COMMIT_SHA/prev-version /www/html 
+# --remove-destination - означает что сначало /var/www/html будет удалена и только потом будет скопировано содержимое
+```
+
+
 
