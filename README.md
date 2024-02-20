@@ -262,7 +262,7 @@ run_linter:
 настройка докера для доступа к /var/www
 - nano /srv/gitlab-runner/config/config.toml
 - volumes = ["/cache","/var/www/:/www:rw"]
-```
+```yml
 stages:
   - build
   - test
@@ -293,7 +293,7 @@ test:
     - ln -fsnv /var/www/test-app/$CI_COMMIT_SHA /www/html
 ```
 Вариант отката
-```
+```yml
 test:
   stage: deploy
   script:
@@ -308,6 +308,131 @@ revert:
     - cp -Rv --remove-destination /www/test-app/$CI_COMMIT_SHA/prev-version /www/html 
 # --remove-destination - означает что сначало /var/www/html будет удалена и только потом будет скопировано содержимое
 ```
+**Предопределенные переменные**
+- CI_COMMIT_SHA	- The commit revision the project is built for.
+- CI_COMMIT_REF_NAME - The branch or tag name for which project is built.
+- CI_COMMIT_TAG	-	The commit tag name. Available only in pipelines for tags.
 
+Вывод всех переменных в pipeline
+```yml
+stages:
+  - print_vars
 
+print_vars:
+  stage: print_vars
+  script:
+    - export
+```
+Пользовательские переменные
+```
+variables:
+  docker_html_path: "/www"
 
+$docker_html_path - использование
+```
+
+Публикация на разные окружения
+- Develop
+- Staging
+- Prod
+
+nginx
+```
+server {
+        listen 81;
+        root /var/www/staging;
+        autoindex on;
+        index index.html index.htm index.nginx-debian.html;
+        server_name _;
+        location / {
+                try_files $uri $uri/ =404;
+        }
+}
+```
+```yml
+stages:
+  - build
+  - test
+  - deploy
+  - revert
+
+variables:
+  docker_html_path: "/www"
+  env: prod
+  deploy_subfolder: html
+
+install_dependencies:
+  image: node:20.11-slim
+  stage: build
+  script:
+    - yarn install
+    - yarn build
+    - mv build build_$env
+  artifacts:
+    paths:
+      - node_modules
+      - build
+      - build_$env
+  cache:
+    paths:
+      - node_modules
+    key:
+      files:
+        - yarn.lock
+
+build_staging:
+  extends: install_dependencies
+  variables:
+    env: staging
+    REACT_APP_WEBSITE_PREFIX: "[staging] "
+    PUBLIC_URL: "/$CI_COMMIT_BRANCH"
+
+test:
+  stage: deploy
+  script:
+    - cp -r build /www/test-app/$CI_COMMIT_SHA
+    - cp -Pv /www/html /www/test-app/$CI_COMMIT_SHA/prev-version
+    - ln -fsnv /var/www/test-app/$CI_COMMIT_SHA /www/html
+
+deploy_staging:
+  extends: deploy_prod
+  variables:
+    deploy_subfolder: staging/$CI_COMMIT_BRANCH
+    env: staging
+  when: always
+  only:
+    - master
+    - feature-.*
+
+deploy_prod:
+  stage: deploy
+  script:
+    - cp -r build_$env /www/test-app/${env}_$CI_COMMIT_SHA
+    - cp -Pv /www/$deploy_subfolder /www/test-app/${env}_$CI_COMMIT_SHA/prev-version
+  only:
+    - master
+
+activate_staging:
+  extends: activate_prod
+  variables:
+    deploy_subfolder: staging/$CI_COMMIT_BRANCH
+    env: staging
+  when: always
+  only:
+    - master
+    - feature-.*
+
+activate_prod:
+  stage: deploy
+  script:
+    - ln -fsnv /var/www/test-app/${env}_$CI_COMMIT_SHA /www/$deploy_subfolder
+  when: manual
+  only:
+    - master
+
+revert:
+  stage: revert
+  when: manual
+  script:
+    - cp -Rv --remove-destination /www/test-app/$CI_COMMIT_SHA/prev-version /www/html
+```
