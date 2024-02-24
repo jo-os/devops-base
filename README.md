@@ -464,6 +464,8 @@ revert:
 ```
 Практика - развернуть loadbalancer и 2 сервера - залить на них через скрипт сайт nodejs
 ```
+https://github.com/jo-os/devops-base/tree/main/terraform
+
 **Ansible** - системы управления конфигурацией
 
 Практика - берем прошлый терраформ, но устанавливаем все через Ansible
