@@ -472,6 +472,7 @@ https://github.com/jo-os/devops-base/tree/main/terraform
 ```
 https://gitlab.com/asomirl/skillbox-meet-ansible - терраформ + ансибл
 ```
+Terraform + https://github.com/jo-os/devops-base/tree/main/ansible
 
 ## Виртуализация
 Программная виртуализация
