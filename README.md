@@ -491,6 +491,8 @@ Terraform + https://github.com/jo-os/devops-base/tree/main/ansible
 
 ## Docker
 
+**Контейнеризация** это метод виртуализации при котором ядро операционной системы поддерживает несколько изолированных экземпляров пространства пользователя вместо одного.
+
 **Docker** - открытая платформа для разработки, доставки и запуска приложений. Позволяет отделить приложение от инфраструктуры чтобы мы могли быстро доставлять ПО.
 
 **Docker** - это ПО для автоматизации развертывания и управления приложениями в средах с поддержкой контейнеризации.
@@ -499,5 +501,151 @@ Terraform + https://github.com/jo-os/devops-base/tree/main/ansible
 - Docker daemon - это сервер Docker, который ожидает запросов к API Docker. Демон Docker управляет образами, контейнерами, сетями и томами.
 - Docker CLI - Клиент Docker (Docker Client) — это основное средство, которое используют для взаимодействия с Docker. 
 
+Команды docker
+```
+docker save image-id > name.tar - сохранили контейнер
+docker load < name.tar - вернули контейнер - но он без имени и тэга
+docker tag image-id name:tag - добавляем имя и тэг
+docker port container-id - покажет порт контейнера
+docker tag image-id jooos/image-name:latest - именуем под hub
+docker push jooos/image-name - пушим в хаб
+```
+**Dockerfile** - это файл содержащий набор инструкций следуя которым Docker будет собирать образ контейнера. Этот файл содержит описание базового образа, который будет представлять собой исходный слой образа.
 
+Образ Docker состоит из слоев, каждый из которых представляет инструкцию Dockerfile. Слои уложены друг на друга и каждый из них представляет дельту изменений от предыдущего слоя.
 
+**Основные правила создания Dockerfile**
+- Create ephemeral containers - создавайте эфимерные контейнары - контейнер может быть создан и уничтожен
+- Understans build context - понимание контекста сборки - при docker build текущий рабочий каталог называется контекстом сборки
+- Pipe Dockerfile through - конвейер Dockerfile через стандартный ввод - docker может создавать образы передавая Dockerfile по конвейеру через стандартный ввод
+- Exclude with .dockerignore - исключать с dockerignore
+- Use multi-stage buids - используйте многоступенчатые сборки
+- Don't install unnecessary packages - не устанавливайте ненужный пакеты
+- Decouple applications - разделяйте приложение
+- Minimize the number of layers - минимизируйте количество слоев
+- Sort multi-line argument - сортируйте многострочные аргументы
+- Leverage build cache - используйте кэш сборки
+
+**Для сохранения преимущества конейнеров**
+- Не надо хранить данные внутри контейнеров
+- Не надо дробить доставку приложений
+- Не надо создавать большие образы
+- Не надо использовать однослойные контейнеры
+- Не надо создавать образы из запущенных контейнеров
+- Не надо использовать только тэг latest
+- Не надо выполнять в контейнере более одного процесса
+- Не надо хранить учетные данные в образе
+- Не надо запускать процессы от имени root
+- не надо полагаться на IP адреса
+
+```
+docker create --name my-nginx -p 80:80 nginx:alpine - создаем контейнер, но он не будет запущен - docker ps -a
+docker cp index.html my-nginx:/usr/share/nginx/html/index.html - копируем index.html
+docker commit my-nginx nginx-hi - получаем образ с измененным index.html
+docker run --name test-nginx -d -p 80:80 nginx-hi - тестим
+```
+**Работа с томами**
+- docker volume create -name my_volume
+- docker volume ls
+- docker volume inspect my_volume
+- docker volume rm my_volume
+- docker volume prune
+- docker system prune
+
+Параметры --mount - предпочтительнее, так как можно указать больше
+- type - тип монтирования - bind, volume, tmpfs
+- source (src) - источник монтирования - для именованных томов это имя тома
+- destination (dst, target) - путь к которому файл или папка монтируется в контейнере
+- readpnly - монтирует том, который предназначен только для чтения
+```
+docker run --mount type=volume,source=volume_myname,destination=/path/in/container,readonly my_image
+```
+https://github.com/darkbenladan/docker-phpfpm-nginx/tree/master
+
+https://hub.docker.com/repository/docker/jooos/phpfpm-nginx/general
+
+**Виды сетей Docker:**
+- host
+- bridge
+- none
+- overlay
+- macvlan
+
+**Управление сетями bridge**
+- docker network create my-net
+- docker network rm my-net
+- docker create --name my-container --network my-net -p 80:80 my-container
+- docker network connect my-net my-container
+- docker network disconnect my-net my-container
+
+**Overlay сеть**
+- docker network create -d overlay my-overlay
+- docker network create --driver overlay --ingress-subnet=10.0.0.0/16 --gateway=10.0.0.2 --opt=com.docker.network.driver.mtu=1200 my-ingress
+
+**Macvlan**
+- docker network create -d macvlan --subnet=192.168.33.0/24 --gateway=192.168.33.254 -o parent=eth0 pub_net
+- получаем контейнер в отдельной виртуальной подсети и чтобы до него достучаться
+- ip link add mac0 link eth0 type macvlan bridge
+- ip addr dd 192.168.33.10/24 dev mac0
+- ifconfig mac0 up
+- далее контейнеры в macvlan pub_net должны пинговаться
+
+Docker Compose - это инструментальное средство входящее в состав Docker, оно предназначено для решения задач связанных с развертыванием проектов.
+```
+docker compose up
+docker compose down
+docker compose logs -f [service]
+docker compose ps
+docker compose exec [service] [command]
+docker compose images
+```
+
+## Ansible
+```
+ansible-playbook my.yml --check
+ansible-playbook my.yml --syntax-check
+ansible-galaxy install geerlingguy.nginx -p . - скачиваем в текущую папку (-p .)
+ansible-inventory --graph
+ansible-inventory --graph --vars
+```
+**Тестирование**
+```
+Проверка статуса service
+Проверка состояния скриптом
+Проверка наличия файла
+```
+Провекра порта:
+```yml
+tasks:
+  wait_for:
+    host: {{ ip }}
+    port: 22
+    delegate_to: localohost
+```
+Провекра url:
+```yml
+tasks:
+  - action: uri url=http://example.com return_content=yes
+    register: webpage
+  - fail:
+    msg: "not found"
+    when: "'Works' not in webpage.content"
+```
+assert - проверка по условиям - если проверка не пройдет то остановка выполнения
+```
+tasks:
+  - shell: /usr/bin/command --paranetr vakue
+    register: result
+  - assert:
+    that:
+    - "'not_ready' not in result.stderr"
+    - "'enabled' in result.stdout"
+```
+**Виды тестирования**
+- E2E - end to end - тестирование основного бизнес функционала (напримре http запросы, регистрация пользователя)
+- Системное тестирование - тестирование программы в целом (например ручное тестирование)
+- - на базе требований - для каждого требования пишут тестовые случаи - тест-кейсы 
+  - на базе сценариев использования - use-case based - на основе данных о по создаются сценарии о его использовании
+- Интеграционное тестирование - тестирование взаимодействия систем или сервисов, целью которого является проверка того что было спроектировано при создании интеграции между несколькими ПО и того что получлось на выходе по функциональными и техническим требованиям. Есть список правил с оределенными выходными данными - проверяем их.
+- Unit тестирование - процесс в программировании позволяющий проверить на корректность отдельные модули исходного кода программы покрывая их тестами. Это тестирование методов какого то классы программы в изоляции от остальной программы - то есть конкретного блока или модуля ПО.
+- Mock тестирование - mock это фиктивная реализация интерфейса, предназначенная для тестирования - это тестирование на заглушках, осуществляется внутри системы без похода в другую систему.
